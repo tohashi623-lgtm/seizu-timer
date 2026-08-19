@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>製図試験タイマー</title>
+<style>
+:root{
+  --ink:#1a2233; --sub:#5a6577; --line:#d8dee8; --bg:#f4f6fa; --card:#ffffff;
+  --accent:#1f4e78; --accent2:#2e75b6; --ok:#1d7a3d; --late:#c02b2b;
+  --plan:#fff2cc; --btn:#1f4e78;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;height:100%;}
+body{font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:var(--bg);color:var(--ink);
+  touch-action:manipulation; user-select:none; -webkit-user-select:none; overscroll-behavior:none;}
+.screen{display:none;min-height:100dvh;flex-direction:column;}
+.screen.active{display:flex;}
+button{font-family:inherit;border:none;border-radius:14px;cursor:pointer;touch-action:manipulation;}
+button:active{transform:scale(.985);filter:brightness(.93);}
+
+/* ===== ホーム ===== */
+#home{padding:max(20px,env(safe-area-inset-top)) 22px 30px;gap:14px;}
+.h-title{font-size:26px;font-weight:800;margin:6px 0 2px;}
+.h-sub{color:var(--sub);font-size:14px;margin-bottom:8px;}
+.newrow{display:flex;gap:12px;flex-wrap:wrap;}
+.newbtn{flex:1;min-width:220px;background:var(--btn);color:#fff;font-size:19px;font-weight:700;padding:20px;}
+.newbtn small{display:block;font-weight:400;font-size:12.5px;opacity:.85;margin-top:5px;}
+.sess{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 18px;
+  display:flex;align-items:center;gap:14px;}
+.sess .info{flex:1;min-width:0;}
+.sess .t{font-size:18px;font-weight:700;}
+.sess .m{font-size:13px;color:var(--sub);margin-top:3px;}
+.badge{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#e2efda;color:var(--ok);white-space:nowrap;}
+.badge.run{background:#fff2cc;color:#8a6d00;}
+.sbtn{background:#eef1f6;color:var(--ink);font-size:14.5px;font-weight:700;padding:12px 16px;white-space:nowrap;}
+.sbtn.warn{color:var(--late);}
+.note{font-size:12.5px;color:var(--sub);line-height:1.8;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;}
+
+/* ===== タイマー ===== */
+#timer{padding:max(12px,env(safe-area-inset-top)) 20px max(14px,env(safe-area-inset-bottom));gap:10px;}
+.topbar{display:flex;align-items:center;gap:12px;}
+.topbar .title{font-weight:700;font-size:15px;color:var(--sub);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.chip{background:#eef1f6;color:var(--ink);font-size:13.5px;font-weight:700;padding:9px 14px;border-radius:10px;}
+.totals{display:flex;gap:10px;}
+.tot{flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 16px;text-align:center;}
+.tot .l{font-size:12.5px;color:var(--sub);font-weight:700;}
+.tot .v{font-size:clamp(24px,4.2vw,40px);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.5px;}
+.tot .v.small{font-size:clamp(18px,3vw,26px);}
+.now{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 20px;gap:2px;min-height:0;}
+.now .g{font-size:clamp(13px,1.8vw,17px);color:var(--sub);font-weight:700;}
+.now .name{font-size:clamp(26px,4.6vw,46px);font-weight:800;text-align:center;line-height:1.25;}
+.now .time{font-size:clamp(56px,11vw,116px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1.05;letter-spacing:1px;}
+.now .gsum{font-size:clamp(14px,2vw,19px);font-weight:700;color:var(--sub);}
+.now .gsum b.over{color:var(--late);} .now .gsum b.under{color:var(--ok);}
+.paused-tag{color:#8a6d00;background:var(--plan);border-radius:8px;padding:2px 12px;font-size:14px;font-weight:800;}
+#mainbtn{background:var(--btn);color:#fff;min-height:clamp(96px,17vh,170px);font-size:clamp(24px,3.6vw,38px);
+  font-weight:800;border-radius:18px;line-height:1.3;}
+#mainbtn small{display:block;font-size:clamp(13px,1.7vw,17px);font-weight:600;opacity:.85;margin-top:4px;}
+#mainbtn.finish{background:var(--ok);}
+.subrow{display:flex;gap:10px;}
+.subrow button{flex:1;background:#e8ecf3;color:var(--ink);font-size:clamp(13.5px,1.7vw,16.5px);font-weight:700;padding:15px 6px;}
+.subrow button.late{background:#fdeeee;color:var(--late);}
+
+/* ===== 一覧/サマリー共通 ===== */
+#jump,#summary{padding:max(18px,env(safe-area-inset-top)) 22px 30px;gap:10px;}
+.list{display:flex;flex-direction:column;gap:6px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.step{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 15px;font-size:16px;}
+.step.cur{border-color:var(--accent2);background:#eaf3fb;font-weight:700;}
+.step.grp{background:#fce4d6;border-color:#f3c9ad;font-weight:700;font-size:14.5px;}
+.step .no{width:34px;color:var(--sub);font-weight:700;font-size:13.5px;}
+.step .nm{flex:1;min-width:0;}
+.step .tm{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap;}
+.step .tm.none{color:var(--line);}
+.step .diff{font-weight:800;white-space:nowrap;font-size:14px;}
+.diff.over{color:var(--late);} .diff.under{color:var(--ok);} .diff.zero{color:var(--sub);}
+.rowbtns{display:flex;gap:10px;flex-wrap:wrap;}
+.rowbtns .sbtn{flex:1;min-width:150px;padding:16px;}
+.rowbtns .sbtn.primary{background:var(--btn);color:#fff;}
+h2{font-size:21px;margin:2px 0 4px;}
+.sumtotal{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 18px;font-size:17px;font-weight:700;display:flex;gap:18px;flex-wrap:wrap;}
+textarea{width:100%;height:130px;font-size:12px;border:1px solid var(--line);border-radius:10px;padding:10px;user-select:text;-webkit-user-select:text;}
+
+/* ===== モーダル ===== */
+#modal{position:fixed;inset:0;background:rgba(15,23,40,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:24px;}
+#modal.active{display:flex;}
+.mbox{background:#fff;border-radius:18px;padding:22px;max-width:520px;width:100%;max-height:82dvh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;}
+.mbox h3{margin:0;font-size:19px;}
+.mbox p{margin:0;color:var(--sub);font-size:14.5px;line-height:1.7;}
+.mrow{display:flex;gap:10px;flex-wrap:wrap;}
+.mrow button{flex:1;min-width:96px;background:#eef1f6;font-size:16px;font-weight:700;padding:15px 8px;}
+.mrow button.primary{background:var(--btn);color:#fff;}
+.mrow button.warn{background:#fdeeee;color:var(--late);}
+input[type=text]{width:100%;font-size:17px;padding:12px;border:1px solid var(--line);border-radius:10px;user-select:text;-webkit-user-select:text;}
+</style>
+</head>
+<body>
+
+<!-- ホーム -->
+<div id="home" class="screen">
+  <div class="h-title">製図試験タイマー</div>
+  <div class="h-sub">手順ごとのタイムを記録して、スプレッドシートに貼り付けられる形で書き出します</div>
+  <div class="newrow">
+    <button class="newbtn" onclick="newSession('zentai')">＋ 全体タイムマネジメント<small>エスキス〜作図まで 34手順（6時間30分）</small></button>
+    <button class="newbtn" onclick="newSession('sakuzu')">＋ 作図タイムマネジメント<small>作図のみ 13手順（2時間30分）</small></button>
+  </div>
+  <div id="sesslist" style="display:flex;flex-direction:column;gap:9px;"></div>
+  <div class="note">
+    ・課題ごとに記録が分かれて保存されます（このiPad内に保存）<br>
+    ・計測中に画面がロックされても時間は正しく進みます<br>
+    ・終了後「書き出し」から、スプレッドシートの「実測 分/秒」列にそのまま貼り付けできます
+  </div>
+</div>
+
+<!-- タイマー -->
+<div id="timer" class="screen">
+  <div class="topbar">
+    <button class="chip" onclick="goHome()">‹ 一覧</button>
+    <div class="title" id="t-title"></div>
+    <button class="chip" onclick="showJump()">手順リスト</button>
+  </div>
+  <div class="totals">
+    <div class="tot"><div class="l">全体累計</div><div class="v" id="t-total">0:00:00</div></div>
+    <div class="tot"><div class="l">目標合計まで</div><div class="v small" id="t-remain">-</div></div>
+    <div class="tot"><div class="l">記録済み手順</div><div class="v small" id="t-count">0</div></div>
+  </div>
+  <div class="now">
+    <div class="g" id="t-group"></div>
+    <div class="name" id="t-name"></div>
+    <div class="time" id="t-elapsed">0:00</div>
+    <div class="gsum" id="t-gsum"></div>
+    <div id="t-paused" style="display:none" class="paused-tag">一時停止中</div>
+  </div>
+  <button id="mainbtn" onclick="tapMain()"></button>
+  <div class="subrow">
+    <button class="late" onclick="showBackfix()">⏪ 少し前に<br>終わっていた</button>
+    <button onclick="undoLap()">↩︎ 直前の記録を<br>取り消す</button>
+    <button onclick="togglePause()" id="pausebtn">⏸ 一時停止</button>
+    <button onclick="confirmFinish()">🏁 課題を<br>終了する</button>
+  </div>
+</div>
+
+<!-- 手順リスト（ジャンプ） -->
+<div id="jump" class="screen">
+  <div class="rowbtns">
+    <button class="sbtn" onclick="showTimer()">‹ タイマーに戻る</button>
+  </div>
+  <h2>手順リスト <span style="font-weight:400;font-size:13.5px;color:var(--sub)">タップでその手順に切り替え（今の手順は自動で記録）</span></h2>
+  <div class="list" id="jumplist"></div>
+</div>
+
+<!-- サマリー -->
+<div id="summary" class="screen">
+  <div class="rowbtns">
+    <button class="sbtn" onclick="goHome()">‹ 一覧へ</button>
+    <button class="sbtn" id="sum-resume" onclick="resumeFromSummary()">▶ 計測を再開する</button>
+    <button class="sbtn primary" onclick="copyTSV()">📋 スプシ貼り付け用をコピー</button>
+    <button class="sbtn" onclick="downloadCSV()">⬇ CSVダウンロード</button>
+  </div>
+  <h2 id="sum-title"></h2>
+  <div class="sumtotal" id="sum-total"></div>
+  <div class="list" id="sumlist"></div>
+  <div class="note">「スプシ貼り付け用をコピー」→ スプレッドシートで記録列の一番上の「実測 分」セル（例：E4）を1つ選択 → 貼り付け。<br>
+  小計行の位置には空行が入っているので、列がズレずにそのまま入ります。</div>
+  <textarea id="tsvbox" style="display:none" readonly></textarea>
+</div>
+
+<!-- モーダル -->
+<div id="modal"><div class="mbox" id="mbox"></div></div>
+
+<script>
+"use strict";
+/* ================= データ定義（v5と同一） ================= */
+const PRESETS = {
+  zentai: { name:"全体タイムマネジメント", short:"全体", totalTarget:390,
+    groups:[
+      {label:"準備〜面積", target:10, steps:["準備","5分読み","面積"]},
+      {label:"プログラム図", target:20, steps:["プログラム図","プログラム図チェック"]},
+      {label:"立体構成〜作図内容確認", target:15, steps:["立体構成","シンプル図","要点の計画（建築計画のみ）","落としどころ","構造（計画の要点・まとめ）","設備（計画の要点・まとめ）","作図内容確認"]},
+      {label:"敷地図〜ゾーニング", target:10, steps:["敷地図","敷地図チェック","アプローチ","ゾーニング"]},
+      {label:"ボリュームチェック", target:18, steps:["ボリュームチェック"]},
+      {label:"ウツワ", target:12, steps:["ウツワ","ウツワチェック"]},
+      {label:"AP/Z・陣地取り", target:5, steps:["AP/Z","陣地取り"]},
+      {label:"コマプラン", target:30, steps:["コマプラン","コマプランチェック"]},
+      {label:"バイコマ", target:30, steps:["バイコマ（平面・断面・面積表）","バイコマチェック"]},
+      {label:"1/400", target:10, steps:["1/400（外構のみ）","1/400チェック"]},
+      {label:"休憩", target:5, steps:["集中力切替・トイレ・水分/糖分補給"]},
+      {label:"記述", target:55, steps:["文章作成","見直し"]},
+      {label:"作図", target:150, steps:["作図","図面チェック","補足"]},
+      {label:"調整", target:20, steps:["余裕時間"]},
+    ]},
+  sakuzu: { name:"作図タイムマネジメント", short:"作図", totalTarget:150,
+    groups:[
+      {label:"手順1〜6", steps:[["面積/基準線/寸法線",8],["柱/壁下書き（コア→フロア）",12],["二方向避難（下書き）",5],["躯体線（外壁→コア→内壁）",20],["階段・EV/シャフト/庇（最小後退距離）",10],["法適合（延焼ライン/防火設備/二方向避難）",10]]},
+      {label:"手順7〜9", steps:[["断面準備（断面線/PC梁/塔屋/トップライト）",5],["断面図",10],["屋外施設",5]]},
+      {label:"手順10〜13", steps:[["文字（寸法/室名/面積）",20],["要求図書リストチェック",10],["什器",20],["全体チェック/補足",15]]},
+    ]}
+};
+function flatSteps(pk){
+  const out=[]; PRESETS[pk].groups.forEach((g,gi)=>{
+    g.steps.forEach(s=>{
+      const [name,target] = Array.isArray(s)?s:[s,null];
+      out.push({name,target,gi});
+    });
+  }); return out;
+}
+function groupTarget(pk,gi){
+  const g=PRESETS[pk].groups[gi];
+  return g.target ?? g.steps.reduce((a,s)=>a+(Array.isArray(s)?s[1]:0),0);
+}
+
+/* ================= 状態 ================= */
+const KEY="seizuTimerV1";
+let app = load() || {sessions:[], seq:{zentai:0, sakuzu:0}};
+let activeId = null;
+function load(){ try{return JSON.parse(localStorage.getItem(KEY));}catch(e){return null;} }
+function save(){ localStorage.setItem(KEY, JSON.stringify(app)); }
+function S(){ return app.sessions.find(s=>s.id===activeId); }
+function laps(s){ const m={}; s.events.forEach(e=>{m[e.idx]=(m[e.idx]||0)+e.sec;}); return m; }
+function now(){ return Date.now(); }
+function curElapsed(s){
+  if(!s.cur) return 0;
+  const end = s.cur.pausedAt ?? now();
+  return Math.max(0,(end - s.cur.startTs - s.cur.pausedTotal)/1000);
+}
+
+/* ================= 表示ユーティリティ ================= */
+function fmtHMS(sec){ sec=Math.round(sec); const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
+  return h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"); }
+function fmtMS(sec){ sec=Math.round(sec); const m=Math.floor(sec/60),s=sec%60;
+  return m+":"+String(s).padStart(2,"0"); }
+function fmtDiff(min){ const v=Math.round(min*10)/10;
+  if(Math.abs(v)<0.05) return ["±0分","zero"];
+  return [(v>0?"+":"−")+Math.abs(v).toFixed(1)+"分", v>0?"over":"under"]; }
+function esc(t){ return t.replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+
+/* ================= 画面遷移 ================= */
+function show(id){ document.querySelectorAll(".screen").forEach(el=>el.classList.toggle("active",el.id===id)); }
+function goHome(){ activeIdSave(); renderHome(); show("home"); }
+function showTimer(){ show("timer"); renderTimer(); }
+function showJump(){ renderJump(); show("jump"); }
+function activeIdSave(){ save(); }
+
+/* ================= ホーム ================= */
+function renderHome(){
+  const box=document.getElementById("sesslist"); box.innerHTML="";
+  if(!app.sessions.length){ box.innerHTML='<div class="note">まだ記録がありません。上のボタンから計測を開始してください。</div>'; return; }
+  [...app.sessions].sort((a,b)=>b.createdAt-a.createdAt).forEach(s=>{
+    const lp=laps(s); const tot=Object.values(lp).reduce((a,b)=>a+b,0)+(s.finished?0:curElapsed(s));
+    const div=document.createElement("div"); div.className="sess";
+    div.innerHTML=`<div class="info"><div class="t">${esc(s.title)}</div>
+      <div class="m">${PRESETS[s.preset].short}・${new Date(s.createdAt).toLocaleDateString("ja-JP")}・累計 ${fmtHMS(tot)}</div></div>
+      <span class="badge ${s.finished?"":"run"}">${s.finished?"完了":"計測中"}</span>
+      <button class="sbtn" data-act="open">${s.finished?"結果を見る":"再開"}</button>
+      <button class="sbtn warn" data-act="del">削除</button>`;
+    div.querySelector('[data-act=open]').onclick=()=>{ activeId=s.id; s.finished?showSummary():showTimer(); };
+    div.querySelector('[data-act=del]').onclick=()=>{
+      modal(`<h3>「${esc(s.title)}」を削除しますか？</h3><p>この記録は元に戻せません。</p>
+        <div class="mrow"><button onclick="closeModal()">やめる</button>
+        <button class="warn" onclick="delSession('${s.id}')">削除する</button></div>`);
+    };
+    box.appendChild(div);
+  });
+}
+function delSession(id){ app.sessions=app.sessions.filter(s=>s.id!==id); save(); closeModal(); renderHome(); }
+
+function newSession(pk){
+  const n=(app.seq[pk]||0)+1;
+  const def=`${PRESETS[pk].short} ${n}回目`;
+  modal(`<h3>新しい計測を開始</h3><p>${PRESETS[pk].name}（タイトルは後からでも分かる名前に）</p>
+    <input type="text" id="m-title" value="${def}">
+    <div class="mrow"><button onclick="closeModal()">やめる</button>
+    <button class="primary" onclick="startSession('${pk}')">計測スタート ▶</button></div>`);
+  setTimeout(()=>{const i=document.getElementById("m-title"); i.focus(); i.select();},50);
+}
+function startSession(pk){
+  const title=document.getElementById("m-title").value.trim()||PRESETS[pk].short;
+  app.seq[pk]=(app.seq[pk]||0)+1;
+  const s={id:String(now()), title, preset:pk, createdAt:now(), events:[], finished:false,
+    cur:{idx:0,startTs:now(),pausedTotal:0,pausedAt:null}};
+  app.sessions.push(s); activeId=s.id; save(); closeModal(); showTimer();
+}
+
+/* ================= タイマー ================= */
+let tick=null;
+function renderTimer(){
+  const s=S(); if(!s) return goHome();
+  document.getElementById("t-title").textContent=s.title;
+  paint();
+  if(tick) clearInterval(tick);
+  tick=setInterval(paint,250);
+}
+function paint(){
+  const s=S(); if(!s||!s.cur){ if(tick)clearInterval(tick); return; }
+  const fl=flatSteps(s.preset), lp=laps(s), idx=s.cur.idx, st=fl[idx];
+  const ce=curElapsed(s);
+  const total=Object.values(lp).reduce((a,b)=>a+b,0)+ce;
+  const gTarget=groupTarget(s.preset,st.gi);
+  let gSum=ce; fl.forEach((x,i)=>{ if(x.gi===st.gi && lp[i]) gSum+=lp[i]; });
+  document.getElementById("t-total").textContent=fmtHMS(total);
+  const remain=PRESETS[s.preset].totalTarget*60-total;
+  document.getElementById("t-remain").textContent=(remain>=0?"残り ":"超過 ")+fmtHMS(Math.abs(remain));
+  document.getElementById("t-remain").style.color=remain>=0?"":"var(--late)";
+  document.getElementById("t-count").textContent=Object.keys(lp).length+" / "+fl.length;
+  const g=PRESETS[s.preset].groups[st.gi];
+  document.getElementById("t-group").textContent=`グループ：${g.label}（目標 ${gTarget}分）`;
+  document.getElementById("t-name").textContent=st.name;
+  document.getElementById("t-elapsed").textContent=fmtMS(ce);
+  const gd=gSum/60-gTarget;
+  const ginfo = gd<=0
+    ? `残り ${(-gd).toFixed(1)}分`
+    : `<b class="over">+${gd.toFixed(1)}分オーバー</b>`;
+  document.getElementById("t-gsum").innerHTML=
+    `このグループ ${(gSum/60).toFixed(1)}分 / ${gTarget}分（${ginfo}）`;
+  document.getElementById("t-paused").style.display=s.cur.pausedAt?"":"none";
+  document.getElementById("pausebtn").textContent=s.cur.pausedAt?"▶ 再開":"⏸ 一時停止";
+  // メインボタン
+  const nextIdx=nextUnrecorded(s,idx);
+  const btn=document.getElementById("mainbtn");
+  if(nextIdx===null){
+    btn.className="finish"; btn.id="mainbtn";
+    btn.innerHTML=`✓ 「${esc(st.name)}」終了<small>これが最後の手順です → 記録して完了</small>`;
+    btn.classList.add("finish");
+  }else{
+    btn.classList.remove("finish");
+    btn.innerHTML=`✓ 「${esc(st.name)}」終了 → 次へ<small>次：${esc(fl[nextIdx].name)}</small>`;
+  }
+}
+function nextUnrecorded(s,from){
+  const fl=flatSteps(s.preset), lp=laps(s);
+  for(let i=from+1;i<fl.length;i++) if(!lp[i]) return i;
+  for(let i=0;i<fl.length;i++) if(i!==from&&!lp[i]) return i;
+  return null;
+}
+function recordCurrent(s,backSec=0){
+  const ce=curElapsed(s);
+  const sec=Math.max(0,Math.round(ce-backSec));
+  s.events.push({idx:s.cur.idx, sec, prevStart:s.cur.startTs, prevPaused:s.cur.pausedTotal});
+  return sec;
+}
+function tapMain(){ advance(0); }
+function advance(backSec){
+  const s=S(); if(!s.cur) return;
+  if(s.cur.pausedAt) togglePause();
+  recordCurrent(s,backSec);
+  const nx=nextUnrecorded(s,s.cur.idx);
+  if(nx===null){ s.cur=null; s.finished=true; save(); showSummary(); return; }
+  s.cur={idx:nx, startTs:now()-backSec*1000, pausedTotal:0, pausedAt:null};
+  save(); paint();
+}
+function showBackfix(){
+  modal(`<h3>⏪ 実際はもう終わっていた</h3>
+    <p>今の手順が「何秒前に終わっていたか」を選ぶと、その分を差し引いて記録し、差し引いた時間は次の手順に付け替えます。</p>
+    <div class="mrow">
+      <button class="primary" onclick="advance(30);closeModal()">30秒前</button>
+      <button class="primary" onclick="advance(60);closeModal()">1分前</button>
+      <button class="primary" onclick="advance(120);closeModal()">2分前</button>
+      <button class="primary" onclick="advance(300);closeModal()">5分前</button>
+    </div>
+    <div class="mrow"><button onclick="closeModal()">やめる</button></div>`);
+}
+function undoLap(){
+  const s=S(); if(!s) return;
+  if(!s.events.length){ modal(`<h3>取り消せる記録がありません</h3><div class="mrow"><button onclick="closeModal()">閉じる</button></div>`); return; }
+  const e=s.events[s.events.length-1];
+  const fl=flatSteps(s.preset);
+  modal(`<h3>↩︎ 直前の記録を取り消す</h3>
+    <p>「${esc(fl[e.idx].name)}」の記録（${fmtMS(e.sec)}）を取り消して、その手順の計測に戻ります。<br>いま計測中だった時間もその手順の続きとして数えます。</p>
+    <div class="mrow"><button onclick="closeModal()">やめる</button>
+    <button class="primary" onclick="doUndo()">取り消して戻る</button></div>`);
+}
+function doUndo(){
+  const s=S(); const e=s.events.pop();
+  s.cur={idx:e.idx, startTs:e.prevStart, pausedTotal:e.prevPaused, pausedAt:s.cur?.pausedAt?now():null};
+  s.finished=false;
+  save(); closeModal(); showTimer();
+}
+function togglePause(){
+  const s=S(); if(!s.cur) return;
+  if(s.cur.pausedAt){ s.cur.pausedTotal+=now()-s.cur.pausedAt; s.cur.pausedAt=null; }
+  else s.cur.pausedAt=now();
+  save(); paint();
+}
+function confirmFinish(){
+  const s=S();
+  modal(`<h3>🏁 課題を終了しますか？</h3>
+    <p>今の手順「${esc(flatSteps(s.preset)[s.cur.idx].name)}」（${fmtMS(curElapsed(s))}）を記録して終了します。未記録の手順は空欄のままになります。</p>
+    <div class="mrow"><button onclick="closeModal()">まだ続ける</button>
+    <button class="primary" onclick="doFinish()">記録して終了</button></div>`);
+}
+function doFinish(){
+  const s=S(); if(s.cur){ recordCurrent(s,0); s.cur=null; }
+  s.finished=true; save(); closeModal(); showSummary();
+}
+
+/* ================= ジャンプ ================= */
+function renderJump(){
+  const s=S(); const fl=flatSteps(s.preset), lp=laps(s);
+  const box=document.getElementById("jumplist"); box.innerHTML="";
+  let no=1, lastGi=-1;
+  fl.forEach((st,i)=>{
+    if(st.gi!==lastGi){
+      lastGi=st.gi;
+      const g=PRESETS[s.preset].groups[st.gi];
+      const gh=document.createElement("div"); gh.className="step grp";
+      gh.innerHTML=`<div class="nm">${esc(g.label)}</div><div class="tm">目標 ${groupTarget(s.preset,st.gi)}分</div>`;
+      box.appendChild(gh);
+    }
+    const cur=s.cur&&s.cur.idx===i;
+    const div=document.createElement("div");
+    div.className="step"+(cur?" cur":"");
+    const t=lp[i]?fmtMS(lp[i]):(cur?"▶ "+fmtMS(curElapsed(s)):"—");
+    div.innerHTML=`<div class="no">${no}</div><div class="nm">${esc(st.name)}${lp[i]&&cur?"（追加計測中）":""}</div>
+      <div class="tm ${lp[i]||cur?"":"none"}">${t}</div>`;
+    if(!cur) div.onclick=()=>jumpTo(i);
+    box.appendChild(div); no++;
+  });
+}
+function jumpTo(i){
+  const s=S(); if(!s.cur){ s.cur={idx:i,startTs:now(),pausedTotal:0,pausedAt:null}; s.finished=false; }
+  else{
+    const ce=curElapsed(s);
+    if(ce>=5) recordCurrent(s,0);   // 5秒未満は誤タップとみなし記録しない
+    s.cur={idx:i, startTs:now(), pausedTotal:0, pausedAt:null};
+  }
+  save(); showTimer();
+}
+
+/* ================= サマリー ================= */
+function showSummary(){
+  const s=S(); const fl=flatSteps(s.preset), lp=laps(s);
+  document.getElementById("sum-title").textContent=s.title+"（"+PRESETS[s.preset].name+"）";
+  document.getElementById("sum-resume").style.display=s.finished?"":"none";
+  const box=document.getElementById("sumlist"); box.innerHTML="";
+  let no=1, total=0, totalT=PRESETS[s.preset].totalTarget;
+  PRESETS[s.preset].groups.forEach((g,gi)=>{
+    let gSum=0, gHas=false;
+    const rows=[];
+    fl.forEach((st,i)=>{
+      if(st.gi!==gi) return;
+      const v=lp[i];
+      if(v){ gSum+=v; gHas=true; }
+      rows.push(`<div class="step"><div class="no">${no}</div><div class="nm">${esc(st.name)}</div>
+        <div class="tm ${v?"":"none"}">${v?fmtMS(v):"—"}</div></div>`);
+      no++;
+    });
+    total+=gSum;
+    const gt=groupTarget(s.preset,gi);
+    const [dtxt,dcls]=gHas?fmtDiff(gSum/60-gt):["—","zero"];
+    box.insertAdjacentHTML("beforeend", rows.join("")+
+      `<div class="step grp"><div class="nm">└ 小計（${esc(g.label)}）　目標 ${gt}分</div>
+       <div class="tm">${gHas?fmtMS(gSum):"—"}</div><div class="diff ${dcls}">${dtxt}</div></div>`);
+  });
+  // 合計差は最終グループまで記録があるときだけ表示（未完の課題を「巻き」と誤表示しない）
+  const lastGi=PRESETS[s.preset].groups.length-1;
+  const lastHas=fl.some((st,i)=>st.gi===lastGi&&lp[i]);
+  const [tdtxt,tdcls]=lastHas?fmtDiff(total/60-totalT):["（最後まで記録なし）","zero"];
+  document.getElementById("sum-total").innerHTML=
+    `<span>合計 ${fmtHMS(total)}</span><span>目標 ${fmtHMS(totalT*60)}</span><span class="diff ${tdcls}">${tdtxt}</span>`;
+  document.getElementById("tsvbox").style.display="none";
+  show("summary");
+}
+function resumeFromSummary(){
+  const s=S(); const fl=flatSteps(s.preset), lp=laps(s);
+  let idx=null; for(let i=0;i<fl.length;i++) if(!lp[i]){ idx=i; break; }
+  if(idx===null) idx=fl.length-1;
+  s.finished=false; s.cur={idx, startTs:now(), pausedTotal:0, pausedAt:null};
+  save(); showTimer();
+}
+/* --- 書き出し --- */
+function buildTSV(){
+  const s=S(); const fl=flatSteps(s.preset), lp=laps(s);
+  const lines=[];
+  PRESETS[s.preset].groups.forEach((g,gi)=>{
+    fl.forEach((st,i)=>{
+      if(st.gi!==gi) return;
+      const v=lp[i];
+      lines.push(v?Math.floor(v/60)+"\t"+Math.round(v%60):"\t");
+    });
+    if(gi<PRESETS[s.preset].groups.length-1) lines.push("\t");  // 小計行の位置
+  });
+  return lines.join("\n");
+}
+function copyTSV(){
+  const tsv=buildTSV();
+  const done=()=>modal(`<h3>📋 コピーしました</h3>
+    <p>スプレッドシートで、貼り付けたい記録列の一番上の「実測 分」セル（例：本番1回目なら E4）を<b>1つだけ選択</b>して貼り付けてください。分と秒の2列に一括で入ります。</p>
+    <div class="mrow"><button class="primary" onclick="closeModal()">OK</button></div>`);
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(tsv).then(done).catch(()=>fallbackCopy(tsv));
+  }else fallbackCopy(tsv);
+}
+function fallbackCopy(tsv){
+  const box=document.getElementById("tsvbox");
+  box.style.display=""; box.value=tsv; box.focus(); box.select();
+  modal(`<h3>下の枠を長押し→「すべて選択」→コピー</h3>
+    <p>自動コピーができない環境のため、画面下の枠から手動でコピーしてください。</p>
+    <div class="mrow"><button class="primary" onclick="closeModal()">OK</button></div>`);
+}
+function downloadCSV(){
+  const s=S(); const fl=flatSteps(s.preset), lp=laps(s);
+  let csv="﻿No,手順,分,秒,合計秒\n"; let no=1;
+  fl.forEach((st,i)=>{
+    const v=lp[i];
+    csv+=`${no},"${st.name}",${v?Math.floor(v/60):""},${v?Math.round(v%60):""},${v?Math.round(v):""}\n`; no++;
+  });
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download=s.title.replace(/[\/\\:]/g,"_")+".csv"; a.click();
+}
+
+/* ================= モーダル・共通 ================= */
+function modal(html){ document.getElementById("mbox").innerHTML=html; document.getElementById("modal").classList.add("active"); }
+function closeModal(){ document.getElementById("modal").classList.remove("active"); }
+document.getElementById("modal").addEventListener("click",e=>{ if(e.target.id==="modal") closeModal(); });
+
+/* スリープ抑止（対応環境のみ） */
+let wl=null;
+async function keepAwake(){ try{ wl=await navigator.wakeLock.request("screen"); }catch(e){} }
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"){ keepAwake(); if(S()&&!S().finished) paint(); } });
+keepAwake();
+
+/* 起動：計測中の課題があれば自動再開 */
+const running=app.sessions.find(s=>!s.finished&&s.cur);
+if(running){ activeId=running.id; showTimer(); } else { renderHome(); show("home"); }
+</script>
+</body>
+</html>
