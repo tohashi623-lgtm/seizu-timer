@@ -77,10 +77,15 @@ button:active{transform:scale(.985);filter:brightness(.93);}
   padding:10px 8px;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:3px;}
 .sghead{font-size:11.5px;font-weight:800;color:var(--sub);padding:9px 9px 3px;letter-spacing:.3px;}
 .sghead.done{border-top:1px solid var(--line);margin-top:8px;padding-top:10px;}
+/* 現在の手順の上にだけ出す、グループ名＋目標時間の薄いハイライト */
+.scur-head{display:flex;align-items:center;gap:8px;background:#eaf3fb;color:var(--accent);
+  font-size:11.5px;font-weight:800;padding:8px 10px 6px;border-radius:10px 10px 0 0;margin:6px 0 -3px;}
+.scur-head .gt{margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .sitem{display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:9px;font-size:13.5px;line-height:1.35;}
 .sitem .snm{flex:1;min-width:0;}
 .sitem .stg{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700;}
-.sitem.cur{background:var(--accent);color:#fff;font-weight:800;font-size:15px;}
+.sitem.cur{background:var(--accent);color:#fff;font-weight:800;font-size:15px;border-radius:0 0 10px 10px;
+  padding:10px;margin-bottom:6px;}
 .sitem.cur .stg{color:#cfe0ef;}
 .sitem.doneitem{opacity:.5;font-size:12.5px;padding:5px 9px;}
 @media(max-width:760px){ .side{display:none;} }
@@ -128,7 +133,7 @@ input[type=text]{width:100%;font-size:17px;padding:12px;border:1px solid var(--l
   <div class="h-title">製図試験タイマー</div>
   <div class="h-sub">手順ごとのタイムを記録して、スプレッドシートに貼り付けられる形で書き出します</div>
   <div class="newrow">
-    <button class="newbtn" onclick="newSession('zentai')">＋ 全体タイムマネジメント<small>エスキス〜作図まで 34手順（6時間30分）／作図パートは自動で詳細計測に切替</small></button>
+    <button class="newbtn" onclick="newSession('zentai')">＋ 全体タイムマネジメント<small>エスキス〜作図まで 27手順（6時間30分）／作図パートは自動で詳細計測に切替</small></button>
     <button class="newbtn" onclick="newSession('sakuzu')">＋ 作図タイムマネジメント<small>作図のみ 13手順（2時間30分）</small></button>
   </div>
   <div id="sesslist" style="display:flex;flex-direction:column;gap:9px;"></div>
@@ -153,7 +158,6 @@ input[type=text]{width:100%;font-size:17px;padding:12px;border:1px solid var(--l
       <div class="totals">
         <div class="tot"><div class="l">全体累計</div><div class="v" id="t-total">0:00:00</div></div>
         <div class="tot"><div class="l">目標合計まで</div><div class="v small" id="t-remain">-</div></div>
-        <div class="tot"><div class="l" id="t-countlbl">記録済み手順</div><div class="v small" id="t-count">0</div></div>
       </div>
       <div class="now">
         <div class="g" id="t-group"></div>
@@ -188,7 +192,8 @@ input[type=text]{width:100%;font-size:17px;padding:12px;border:1px solid var(--l
   <div class="rowbtns">
     <button class="sbtn" onclick="goHome()">‹ 一覧へ</button>
     <button class="sbtn" id="sum-resume" onclick="resumeFromSummary()">▶ 計測を再開する</button>
-    <button class="sbtn primary" onclick="copyTSV()">📋 スプシ貼り付け用をコピー</button>
+    <button class="sbtn primary" id="sum-copy" onclick="copyTSV()">📋 スプシ貼り付け用をコピー</button>
+    <button class="sbtn primary" id="sum-copysub" onclick="copyTSV('sub')" style="display:none">📋 作図パートをコピー</button>
     <button class="sbtn" onclick="downloadCSV()">⬇ CSVダウンロード</button>
   </div>
   <h2 id="sum-title"></h2>
@@ -200,7 +205,8 @@ input[type=text]{width:100%;font-size:17px;padding:12px;border:1px solid var(--l
     <div class="list" id="sumsublist"></div>
   </div>
   <div class="note">「スプシ貼り付け用をコピー」→ スプレッドシートで記録列の一番上の「実測 分」セル（例：E4）を1つ選択 → 貼り付け。<br>
-  小計行の位置には空行が入っているので、列がズレずにそのまま入ります。</div>
+  小計行の位置には空行が入っているので、列がズレずにそのまま入ります。<br>
+  作図パートを詳細計測した場合は「📋 作図パートをコピー」で、作図シート用の13手順分を別途コピーできます。</div>
   <h2 style="margin-top:14px">備考</h2>
   <textarea id="sum-note" class="notearea" placeholder="気づいたこと・つまずいた手順・次回に向けた改善点など（自動保存されます）"></textarea>
   <textarea id="tsvbox" style="display:none" readonly></textarea>
@@ -213,22 +219,22 @@ input[type=text]{width:100%;font-size:17px;padding:12px;border:1px solid var(--l
 "use strict";
 /* ================= データ定義 ================= */
 const PRESETS = {
+  /* スプレッドシート v7（全体27手順・合計390分）と同じ構成 */
   zentai: { name:"全体タイムマネジメント", short:"全体", totalTarget:390,
     groups:[
-      {label:"準備〜面積", target:10, steps:["準備","5分読み","面積"]},
-      {label:"プログラム図", target:20, steps:["プログラム図","プログラム図チェック"]},
-      {label:"立体構成〜作図内容確認", target:15, steps:["立体構成","シンプル図","要点の計画（建築計画のみ）","落としどころ","構造（計画の要点・まとめ）","設備（計画の要点・まとめ）","作図内容確認"]},
+      {label:"準備〜読み込み", target:15, steps:["準備","5分読み","読み込み・まとめ"]},
+      {label:"プログラム図", target:10, steps:["プログラム図","プログラム図チェック"]},
+      {label:"立体構成・決断リスト", target:10, steps:["立体構成","決断リスト"]},
       {label:"敷地図〜ゾーニング", target:10, steps:["敷地図","敷地図チェック","アプローチ","ゾーニング"]},
-      {label:"ボリュームチェック", target:18, steps:["ボリュームチェック"]},
-      {label:"ウツワ", target:12, steps:["ウツワ","ウツワチェック"]},
-      {label:"AP/Z・陣地取り", target:5, steps:["AP/Z","陣地取り"]},
+      {label:"ウツワ〜ボリュームチェック", target:25, steps:["ウツワ","ウツワチェック","基準階プラン","ボリュームチェック"]},
+      {label:"AP/Z", target:10, steps:["AP/Z"]},
       {label:"コマプラン", target:30, steps:["コマプラン","コマプランチェック"]},
       {label:"バイコマ", target:30, steps:["バイコマ（平面・断面・面積表）","バイコマチェック"]},
       {label:"1/400", target:10, steps:["1/400（外構のみ）","1/400チェック"]},
       {label:"休憩", target:5, steps:["集中力切替・トイレ・水分/糖分補給"]},
       {label:"記述", target:55, steps:["文章作成","見直し"]},
-      {label:"作図", target:150, steps:["作図","図面チェック","補足"]},
-      {label:"調整", target:20, steps:["余裕時間"]},
+      {label:"作図", target:150, steps:["作図"]},   /* 詳細は作図13手順（サブモード）で計測。スプシv7も作図1行のみ */
+      {label:"調整", target:30, steps:["余裕時間"]},
     ]},
   sakuzu: { name:"作図タイムマネジメント", short:"作図", totalTarget:150,
     groups:[
@@ -363,8 +369,6 @@ function paint(){
   const remain=PRESETS[s.preset].totalTarget*60-mainTotal;
   document.getElementById("t-remain").textContent=(remain>=0?"残り ":"超過 ")+fmtHMS(Math.abs(remain));
   document.getElementById("t-remain").style.color=remain>=0?"":"var(--late)";
-  document.getElementById("t-countlbl").textContent=c.sub?"作図手順":"記録済み手順";
-  document.getElementById("t-count").textContent=Object.keys(c.lp).length+" / "+c.fl.length;
 
   const st=c.fl[c.cur.idx];
   const ce=elapsedOf(c.cur);
@@ -415,10 +419,16 @@ function nextLabel(c){
   }
   return null;
 }
+/* 次の手順は「前方の未記録」だけを探す。
+   末尾まで来たら先頭に巻き戻さない（飛ばした手順が終盤に再登場するのを防止）。
+   飛ばした手順を後から埋めたいときは、サイドバー／手順リストから直接タップして戻る。 */
 function nextUnrecordedIn(fl,lp,from){
   for(let i=from+1;i<fl.length;i++) if(!has(lp,i)) return i;
-  for(let i=0;i<fl.length;i++) if(i!==from&&!has(lp,i)) return i;
   return null;
+}
+function skippedCount(fl,lp,from){
+  let n=0; for(let i=0;i<fl.length;i++) if(i!==from&&!has(lp,i)) n++;
+  return n;
 }
 function nextUnrecorded(s,from){ return nextUnrecordedIn(flatSteps(s.preset),laps(s),from); }
 
@@ -426,15 +436,14 @@ function nextUnrecorded(s,from){ return nextUnrecordedIn(flatSteps(s.preset),lap
 function renderSide(){
   const box=document.getElementById("t-side"); const c=ctx();
   if(!c||!c.cur){ box.innerHTML=""; return; }
-  const done=[]; let html="", lastGi=-1;
+  const done=[]; let html="";
   html+=`<div class="sghead">${c.sub?"作図パート 13手順":"手順"}</div>`;
   c.fl.forEach((st,i)=>{
     const cur=(i===c.cur.idx);
     if(!cur && has(c.lp,i)){ done.push(i); return; }
-    if(st.gi!==lastGi){
-      lastGi=st.gi;
-      html+=`<div class="sghead">${esc(PRESETS[c.preset].groups[st.gi].label)}　目標${groupTarget(c.preset,st.gi)}分</div>`;
-    }
+    // グループ見出しは流さず、いま計測中の手順の上にだけ表示する
+    if(cur) html+=`<div class="scur-head">${esc(PRESETS[c.preset].groups[st.gi].label)}
+      <span class="gt">目標 ${groupTarget(c.preset,st.gi)}分</span></div>`;
     html+=`<div class="sitem${cur?" cur":""}" data-i="${i}">
       <div class="snm">${esc(st.name)}</div>
       <div class="stg">${st.target?st.target+"分":""}</div></div>`;
@@ -482,7 +491,15 @@ function advanceMain(backSec){
   const s=S();
   recordCurrent(s,backSec);
   const nx=nextUnrecorded(s,s.cur.idx);
-  if(nx===null){ s.cur=null; s.sub=null; s.finished=true; save(); showSummary(); return; }
+  if(nx===null){                                   // 最後の手順まで到達 → 完了
+    const skipped=skippedCount(flatSteps(s.preset),laps(s),s.cur.idx);
+    s.cur=null; s.sub=null; s.finished=true; save(); showSummary();
+    if(skipped) modal(`<h3>お疲れさまでした</h3>
+      <p>最後まで記録しました。飛ばした手順が <b>${skipped}件</b> 空欄のままです。<br>
+      埋めたい場合は「▶ 計測を再開する」から、手順リストでその手順をタップしてください。</p>
+      <div class="mrow"><button class="primary" onclick="closeModal()">OK</button></div>`);
+    return;
+  }
   s.cur={idx:nx, startTs:now()-backSec*1000, pausedTotal:0, pausedAt:null};
   save(); refresh();
   askSubIfDrawStep();
@@ -691,6 +708,9 @@ function showSummary(){
     `<span>合計 ${fmtHMS(total)}</span><span>目標 ${fmtHMS(totalT*60)}</span><span class="diff ${tdcls}">${tdtxt}</span>`;
 
   renderSubSummary(s);
+  // 作図パートの記録があるときだけ、作図シート用のコピーボタンを出す
+  document.getElementById("sum-copysub").style.display=hasSub?"":"none";
+  document.getElementById("sum-copy").textContent=hasSub?"📋 全体をコピー":"📋 スプシ貼り付け用をコピー";
   const nt=document.getElementById("sum-note"); nt.value=s.note||"";
   document.getElementById("tsvbox").style.display="none";
   show("summary");
@@ -738,22 +758,26 @@ function resumeFromSummary(){
   askSubIfDrawStep();
 }
 /* --- 書き出し --- */
-function buildTSV(){
-  const s=S(); const fl=flatSteps(s.preset), lp=laps(s);
-  const lines=[];
-  PRESETS[s.preset].groups.forEach((g,gi)=>{
+function tsvFrom(pk,lp){
+  const fl=flatSteps(pk), lines=[];
+  PRESETS[pk].groups.forEach((g,gi)=>{
     fl.forEach((st,i)=>{
       if(st.gi!==gi) return;
       lines.push(has(lp,i)?Math.floor(lp[i]/60)+"\t"+Math.round(lp[i]%60):"\t");
     });
-    if(gi<PRESETS[s.preset].groups.length-1) lines.push("\t");  // 小計行の位置
+    if(gi<PRESETS[pk].groups.length-1) lines.push("\t");  // 小計行の位置
   });
   return lines.join("\n");
 }
-function copyTSV(){
-  const tsv=buildTSV();
-  const done=()=>modal(`<h3>📋 コピーしました</h3>
-    <p>スプレッドシートで、貼り付けたい記録列の一番上の「実測 分」セル（例：本番1回目なら E4）を<b>1つだけ選択</b>して貼り付けてください。分と秒の2列に一括で入ります。</p>
+function buildTSV(){ const s=S(); return tsvFrom(s.preset, laps(s)); }
+function copyTSV(kind){
+  const s=S(), sub=(kind==="sub");
+  const tsv=sub?tsvFrom("sakuzu",subLaps(s)):buildTSV();
+  const where=sub
+    ? "<b>作図タイムマネジメントのシート</b>で、記録列の一番上の「実測 分」セルを<b>1つだけ選択</b>して貼り付けてください。13手順分が分・秒の2列に入ります。"
+    : "スプレッドシートで、貼り付けたい記録列の一番上の「実測 分」セル（例：本番1回目なら E4）を<b>1つだけ選択</b>して貼り付けてください。分と秒の2列に一括で入ります。";
+  const done=()=>modal(`<h3>📋 ${sub?"作図パートを":""}コピーしました</h3>
+    <p>${where}</p>
     <div class="mrow"><button class="primary" onclick="closeModal()">OK</button></div>`);
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(tsv).then(done).catch(()=>fallbackCopy(tsv));
