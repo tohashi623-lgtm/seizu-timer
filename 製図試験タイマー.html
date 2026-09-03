@@ -77,15 +77,22 @@ button:active{transform:scale(.985);filter:brightness(.93);}
   padding:10px 8px;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:3px;}
 .sghead{font-size:11.5px;font-weight:800;color:var(--sub);padding:9px 9px 3px;letter-spacing:.3px;}
 .sghead.done{border-top:1px solid var(--line);margin-top:8px;padding-top:10px;}
-/* 現在の手順の上にだけ出す、グループ名＋目標時間の薄いハイライト */
-.scur-head{display:flex;align-items:center;gap:8px;background:#eaf3fb;color:var(--accent);
-  font-size:11.5px;font-weight:800;padding:8px 10px 6px;border-radius:10px 10px 0 0;margin:6px 0 -3px;}
+/* グループのかたまり。横線で区切り、計測中のグループだけ背景をハイライト */
+.sgroup{border-top:1px solid var(--line);padding:2px 0 5px;}
+.sgroup:first-of-type{border-top:none;}
+.sgroup.active{background:#eaf3fb;border-radius:12px;border-top-color:transparent;
+  padding:2px 4px 6px;margin:5px -2px;}
+.sgroup.active + .sgroup{border-top-color:transparent;}
+/* グループ名＋目標時間の見出し */
+.scur-head{display:flex;align-items:center;gap:8px;color:var(--sub);
+  font-size:11.5px;font-weight:800;padding:8px 10px 5px;}
+.sgroup.active > .scur-head{color:var(--accent);}
 .scur-head .gt{margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .sitem{display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:9px;font-size:13.5px;line-height:1.35;}
 .sitem .snm{flex:1;min-width:0;}
 .sitem .stg{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700;}
-.sitem.cur{background:var(--accent);color:#fff;font-weight:800;font-size:15px;border-radius:0 0 10px 10px;
-  padding:10px;margin-bottom:6px;}
+.sitem.cur{background:var(--accent);color:#fff;font-weight:800;font-size:15px;border-radius:10px;
+  padding:10px;}
 .sitem.cur .stg{color:#cfe0ef;}
 .sitem.doneitem{opacity:.5;font-size:12.5px;padding:5px 9px;}
 @media(max-width:760px){ .side{display:none;} }
@@ -438,16 +445,24 @@ function renderSide(){
   if(!c||!c.cur){ box.innerHTML=""; return; }
   const done=[]; let html="";
   html+=`<div class="sghead">${c.sub?"作図パート 13手順":"手順"}</div>`;
+  // グループごとに枠でくくる。横線で区切り、計測中のグループだけ背景をハイライトする
+  const curGi=c.fl[c.cur.idx].gi;
+  let lastGi=-1, open=false;
   c.fl.forEach((st,i)=>{
     const cur=(i===c.cur.idx);
     if(!cur && has(c.lp,i)){ done.push(i); return; }
-    // グループ見出しは流さず、いま計測中の手順の上にだけ表示する
-    if(cur) html+=`<div class="scur-head">${esc(PRESETS[c.preset].groups[st.gi].label)}
-      <span class="gt">目標 ${groupTarget(c.preset,st.gi)}分</span></div>`;
+    if(st.gi!==lastGi){
+      if(open) html+="</div>";
+      lastGi=st.gi; open=true;
+      html+=`<div class="sgroup${st.gi===curGi?" active":""}">
+        <div class="scur-head">${esc(PRESETS[c.preset].groups[st.gi].label)}
+        <span class="gt">目標 ${groupTarget(c.preset,st.gi)}分</span></div>`;
+    }
     html+=`<div class="sitem${cur?" cur":""}" data-i="${i}">
       <div class="snm">${esc(st.name)}</div>
       <div class="stg">${st.target?st.target+"分":""}</div></div>`;
   });
+  if(open) html+="</div>";
   if(done.length){
     html+=`<div class="sghead done">記録済み ${done.length}</div>`;
     done.forEach(i=>{
