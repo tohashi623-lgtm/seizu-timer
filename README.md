@@ -1,0 +1,831 @@
+[製図試験タイマー.html](https://github.com/user-attachments/files/31772612/default.html)
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>製図試験タイマー</title>
+<style>
+:root{
+  --ink:#1a2233; --sub:#5a6577; --line:#d8dee8; --bg:#f4f6fa; --card:#ffffff;
+  --accent:#1f4e78; --accent2:#2e75b6; --ok:#1d7a3d; --late:#c02b2b;
+  --plan:#fff2cc; --btn:#1f4e78;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;height:100%;}
+body{font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:var(--bg);color:var(--ink);
+  touch-action:manipulation; user-select:none; -webkit-user-select:none; overscroll-behavior:none;}
+.screen{display:none;min-height:100dvh;flex-direction:column;}
+.screen.active{display:flex;}
+button{font-family:inherit;border:none;border-radius:14px;cursor:pointer;touch-action:manipulation;}
+button:active{transform:scale(.985);filter:brightness(.93);}
+
+/* ===== ホーム ===== */
+#home{padding:max(20px,env(safe-area-inset-top)) 22px 30px;gap:14px;}
+.h-title{font-size:26px;font-weight:800;margin:6px 0 2px;}
+.h-sub{color:var(--sub);font-size:14px;margin-bottom:8px;}
+.newrow{display:flex;gap:12px;flex-wrap:wrap;}
+.newbtn{flex:1;min-width:220px;background:var(--btn);color:#fff;font-size:19px;font-weight:700;padding:20px;}
+.newbtn small{display:block;font-weight:400;font-size:12.5px;opacity:.85;margin-top:5px;}
+.sess{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 18px;
+  display:flex;align-items:center;gap:14px;}
+.sess .info{flex:1;min-width:0;}
+.sess .t{font-size:18px;font-weight:700;}
+.sess .m{font-size:13px;color:var(--sub);margin-top:3px;}
+.badge{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#e2efda;color:var(--ok);white-space:nowrap;}
+.badge.run{background:#fff2cc;color:#8a6d00;}
+.sbtn{background:#eef1f6;color:var(--ink);font-size:14.5px;font-weight:700;padding:12px 16px;white-space:nowrap;}
+.sbtn.warn{color:var(--late);}
+.note{font-size:12.5px;color:var(--sub);line-height:1.8;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;}
+
+/* ===== タイマー ===== */
+#timer{padding:max(12px,env(safe-area-inset-top)) 20px max(14px,env(safe-area-inset-bottom));gap:10px;
+  height:100dvh;overflow:hidden;}
+.topbar{display:flex;align-items:center;gap:12px;}
+.topbar .title{font-weight:700;font-size:15px;color:var(--sub);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.chip{background:#eef1f6;color:var(--ink);font-size:13.5px;font-weight:700;padding:9px 14px;border-radius:10px;}
+.chip.mode{background:#fce4d6;color:#8a3b00;}
+.tmr-wrap{flex:1;display:flex;gap:14px;min-height:0;}
+.tmr-main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px;}
+.totals{display:flex;gap:10px;}
+.tot{flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 16px;text-align:center;}
+.tot .l{font-size:12.5px;color:var(--sub);font-weight:700;}
+.tot .v{font-size:clamp(24px,4.2vw,40px);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.5px;}
+.tot .v.small{font-size:clamp(18px,3vw,26px);}
+.now{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 20px;gap:2px;min-height:0;}
+.now .g{font-size:clamp(13px,1.8vw,17px);color:var(--sub);font-weight:700;}
+.now .name{font-size:clamp(26px,4.6vw,46px);font-weight:800;text-align:center;line-height:1.25;}
+.now .time{font-size:clamp(52px,10vw,110px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1.05;letter-spacing:1px;}
+.now .starget{font-size:clamp(17px,2.8vw,26px);font-weight:800;margin-top:2px;}
+.now .starget .ok{color:var(--ok);} .now .starget .over{color:var(--late);}
+.now .gsum{font-size:clamp(14px,2vw,19px);font-weight:700;color:var(--sub);}
+.now .gsum.mini{font-size:clamp(12px,1.5vw,14.5px);font-weight:600;opacity:.9;margin-top:2px;}
+.now .gsum b.over{color:var(--late);} .now .gsum b.under{color:var(--ok);}
+.paused-tag{color:#8a6d00;background:var(--plan);border-radius:8px;padding:2px 12px;font-size:14px;font-weight:800;}
+#mainbtn{background:var(--btn);color:#fff;min-height:clamp(96px,17vh,170px);font-size:clamp(22px,3vw,32px);
+  font-weight:800;border-radius:18px;line-height:1.3;}
+#mainbtn small{display:block;font-size:clamp(15px,2.1vw,22px);font-weight:700;opacity:.95;margin-top:6px;}
+#mainbtn.finish{background:var(--ok);}
+.subrow{display:flex;gap:10px;}
+.subrow button{flex:1;background:#e8ecf3;color:var(--ink);font-size:clamp(13.5px,1.7vw,16.5px);font-weight:700;padding:15px 6px;}
+.subrow button.late{background:#fdeeee;color:var(--late);}
+
+/* ===== 左サイドバー（手順リスト） ===== */
+.side{width:clamp(200px,23vw,280px);min-height:0;background:var(--card);border:1px solid var(--line);border-radius:16px;
+  padding:10px 8px;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:3px;}
+.sghead{font-size:11.5px;font-weight:800;color:var(--sub);padding:9px 9px 3px;letter-spacing:.3px;}
+.sghead.done{border-top:1px solid var(--line);margin-top:8px;padding-top:10px;}
+/* 現在の手順の上にだけ出す、グループ名＋目標時間の薄いハイライト */
+.scur-head{display:flex;align-items:center;gap:8px;background:#eaf3fb;color:var(--accent);
+  font-size:11.5px;font-weight:800;padding:8px 10px 6px;border-radius:10px 10px 0 0;margin:6px 0 -3px;}
+.scur-head .gt{margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.sitem{display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:9px;font-size:13.5px;line-height:1.35;}
+.sitem .snm{flex:1;min-width:0;}
+.sitem .stg{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700;}
+.sitem.cur{background:var(--accent);color:#fff;font-weight:800;font-size:15px;border-radius:0 0 10px 10px;
+  padding:10px;margin-bottom:6px;}
+.sitem.cur .stg{color:#cfe0ef;}
+.sitem.doneitem{opacity:.5;font-size:12.5px;padding:5px 9px;}
+@media(max-width:760px){ .side{display:none;} }
+
+/* ===== 一覧/サマリー共通 ===== */
+#jump,#summary{padding:max(18px,env(safe-area-inset-top)) 22px 30px;gap:10px;}
+.list{display:flex;flex-direction:column;gap:6px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.step{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 15px;font-size:16px;}
+.step.cur{border-color:var(--accent2);background:#eaf3fb;font-weight:700;}
+.step.grp{background:#fce4d6;border-color:#f3c9ad;font-weight:700;font-size:14.5px;}
+.step.doneitem{opacity:.55;}
+.step .no{width:34px;color:var(--sub);font-weight:700;font-size:13.5px;}
+.step .nm{flex:1;min-width:0;}
+.step .tg{font-size:13px;color:var(--sub);font-weight:700;white-space:nowrap;}
+.step .tm{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap;}
+.step .tm.none{color:var(--line);}
+.step .diff{font-weight:800;white-space:nowrap;font-size:14px;}
+.diff.over{color:var(--late);} .diff.under{color:var(--ok);} .diff.zero{color:var(--sub);}
+.rowbtns{display:flex;gap:10px;flex-wrap:wrap;}
+.rowbtns .sbtn{flex:1;min-width:150px;padding:16px;}
+.rowbtns .sbtn.primary{background:var(--btn);color:#fff;}
+h2{font-size:21px;margin:2px 0 4px;}
+.sumtotal{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 18px;font-size:17px;font-weight:700;display:flex;gap:18px;flex-wrap:wrap;}
+textarea{width:100%;height:130px;font-size:12px;border:1px solid var(--line);border-radius:10px;padding:10px;user-select:text;-webkit-user-select:text;}
+textarea.notearea{height:150px;font-size:15px;line-height:1.7;background:var(--card);}
+
+/* ===== モーダル ===== */
+#modal{position:fixed;inset:0;background:rgba(15,23,40,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:24px;}
+#modal.active{display:flex;}
+.mbox{background:#fff;border-radius:18px;padding:22px;max-width:520px;width:100%;max-height:82dvh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;}
+.mbox h3{margin:0;font-size:19px;}
+.mbox p{margin:0;color:var(--sub);font-size:14.5px;line-height:1.7;}
+.mrow{display:flex;gap:10px;flex-wrap:wrap;}
+.mrow button{flex:1;min-width:96px;background:#eef1f6;font-size:16px;font-weight:700;padding:15px 8px;}
+.mrow button.primary{background:var(--btn);color:#fff;}
+.mrow button.warn{background:#fdeeee;color:var(--late);}
+.mrow.col{flex-direction:column;}
+input[type=text]{width:100%;font-size:17px;padding:12px;border:1px solid var(--line);border-radius:10px;user-select:text;-webkit-user-select:text;}
+</style>
+</head>
+<body>
+
+<!-- ホーム -->
+<div id="home" class="screen">
+  <div class="h-title">製図試験タイマー</div>
+  <div class="h-sub">手順ごとのタイムを記録して、スプレッドシートに貼り付けられる形で書き出します</div>
+  <div class="newrow">
+    <button class="newbtn" onclick="newSession('zentai')">＋ 全体タイムマネジメント<small>エスキス〜作図まで 34手順（6時間30分）／作図パートは自動で詳細計測に切替</small></button>
+    <button class="newbtn" onclick="newSession('sakuzu')">＋ 作図タイムマネジメント<small>作図のみ 13手順（2時間30分）</small></button>
+  </div>
+  <div id="sesslist" style="display:flex;flex-direction:column;gap:9px;"></div>
+  <div class="note">
+    ・課題ごとに記録が分かれて保存されます（このiPad内に保存）<br>
+    ・計測中に画面がロックされても時間は正しく進みます<br>
+    ・終了後「書き出し」から、スプレッドシートの「実測 分/秒」列にそのまま貼り付けできます
+  </div>
+</div>
+
+<!-- タイマー -->
+<div id="timer" class="screen">
+  <div class="topbar">
+    <button class="chip" onclick="goHome()">‹ 一覧</button>
+    <div class="title" id="t-title"></div>
+    <span class="chip mode" id="t-mode" style="display:none">作図モード</span>
+    <button class="chip" onclick="showJump()">手順リスト</button>
+  </div>
+  <div class="tmr-wrap">
+    <aside class="side" id="t-side"></aside>
+    <div class="tmr-main">
+      <div class="totals">
+        <div class="tot"><div class="l">全体累計</div><div class="v" id="t-total">0:00:00</div></div>
+        <div class="tot"><div class="l">目標合計まで</div><div class="v small" id="t-remain">-</div></div>
+      </div>
+      <div class="now">
+        <div class="g" id="t-group"></div>
+        <div class="name" id="t-name"></div>
+        <div class="time" id="t-elapsed">0:00</div>
+        <div class="starget" id="t-starget" style="display:none"></div>
+        <div class="gsum" id="t-gsum"></div>
+        <div id="t-paused" style="display:none" class="paused-tag">一時停止中</div>
+      </div>
+      <button id="mainbtn" onclick="tapMain()"></button>
+      <div class="subrow">
+        <button class="late" onclick="showBackfix()">⏪ 少し前に<br>終わっていた</button>
+        <button onclick="undoLap()">↩︎ 直前の記録を<br>取り消す</button>
+        <button onclick="togglePause()" id="pausebtn">⏸ 一時停止</button>
+        <button onclick="confirmFinish()" id="finishbtn">🏁 課題を<br>終了する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 手順リスト（ジャンプ） -->
+<div id="jump" class="screen">
+  <div class="rowbtns">
+    <button class="sbtn" onclick="showTimer()">‹ タイマーに戻る</button>
+  </div>
+  <h2>手順リスト <span style="font-weight:400;font-size:13.5px;color:var(--sub)">タップでその手順に切り替え（今の手順は自動で記録）</span></h2>
+  <div class="list" id="jumplist"></div>
+</div>
+
+<!-- サマリー -->
+<div id="summary" class="screen">
+  <div class="rowbtns">
+    <button class="sbtn" onclick="goHome()">‹ 一覧へ</button>
+    <button class="sbtn" id="sum-resume" onclick="resumeFromSummary()">▶ 計測を再開する</button>
+    <button class="sbtn primary" id="sum-copy" onclick="copyTSV()">📋 スプシ貼り付け用をコピー</button>
+    <button class="sbtn primary" id="sum-copysub" onclick="copyTSV('sub')" style="display:none">📋 作図パートをコピー</button>
+    <button class="sbtn" onclick="downloadCSV()">⬇ CSVダウンロード</button>
+  </div>
+  <h2 id="sum-title"></h2>
+  <div class="sumtotal" id="sum-total"></div>
+  <div class="list" id="sumlist"></div>
+  <div id="sum-subwrap" style="display:none">
+    <h2 style="margin-top:14px">作図パート詳細 <span style="font-weight:400;font-size:13.5px;color:var(--sub)">（全体表の「作図」はこの合計）</span></h2>
+    <div class="sumtotal" id="sum-subtotal" style="font-size:15px"></div>
+    <div class="list" id="sumsublist"></div>
+  </div>
+  <div class="note">「スプシ貼り付け用をコピー」→ スプレッドシートで記録列の一番上の「実測 分」セル（例：E4）を1つ選択 → 貼り付け。<br>
+  小計行の位置には空行が入っているので、列がズレずにそのまま入ります。<br>
+  作図パートを詳細計測した場合は「📋 作図パートをコピー」で、作図シート用の13手順分を別途コピーできます。</div>
+  <h2 style="margin-top:14px">備考</h2>
+  <textarea id="sum-note" class="notearea" placeholder="気づいたこと・つまずいた手順・次回に向けた改善点など（自動保存されます）"></textarea>
+  <textarea id="tsvbox" style="display:none" readonly></textarea>
+</div>
+
+<!-- モーダル -->
+<div id="modal"><div class="mbox" id="mbox"></div></div>
+
+<script>
+"use strict";
+/* ================= データ定義 ================= */
+const PRESETS = {
+  /* スプレッドシート v7（全体27手順・合計390分）と同じ構成 */
+  zentai: { name:"全体タイムマネジメント", short:"全体", totalTarget:390,
+    groups:[
+      {label:"準備〜読み込み", target:15, steps:["準備","5分読み","読み込み・まとめ"]},
+      {label:"プログラム図", target:10, steps:["プログラム図","プログラム図チェック"]},
+      {label:"立体構成・決断リスト", target:10, steps:["立体構成","決断リスト"]},
+      {label:"敷地図〜ゾーニング", target:10, steps:["敷地図","敷地図チェック","アプローチ","ゾーニング"]},
+      {label:"ウツワ〜ボリュームチェック", target:25, steps:["ウツワ","ウツワチェック","基準階プラン","ボリュームチェック"]},
+      {label:"AP/Z", target:10, steps:["AP/Z"]},
+      {label:"コマプラン", target:30, steps:["コマプラン","コマプランチェック"]},
+      {label:"バイコマ", target:30, steps:["バイコマ（平面・断面・面積表）","バイコマチェック"]},
+      {label:"1/400", target:10, steps:["1/400（外構のみ）","1/400チェック"]},
+      {label:"休憩", target:5, steps:["集中力切替・トイレ・水分/糖分補給"]},
+      {label:"記述", target:55, steps:["文章作成","見直し"]},
+      {label:"作図", target:150, steps:["作図"]},   /* 詳細は作図13手順（サブモード）で計測。スプシv7も作図1行のみ */
+      {label:"調整", target:30, steps:["余裕時間"]},
+    ]},
+  sakuzu: { name:"作図タイムマネジメント", short:"作図", totalTarget:150,
+    groups:[
+      {label:"手順1〜6", steps:[["面積/基準線/寸法線",8],["柱/壁下書き（コア→フロア）",12],["二方向避難（下書き）",5],["躯体線（外壁→コア→内壁）",20],["階段・EV/シャフト/庇（最小後退距離）",10],["法適合（延焼ライン/防火設備/二方向避難）",10]]},
+      {label:"手順7〜9", steps:[["断面準備（断面線/PC梁/塔屋/トップライト）",5],["断面図",10],["屋外施設",5]]},
+      {label:"手順10〜13", steps:[["文字（寸法/室名/面積）",20],["要求図書リストチェック",10],["什器",20],["全体チェック/補足",15]]},
+    ]}
+};
+/* 全体プリセットで、ここに来たら作図（詳細13手順）モードに切り替える手順名 */
+const DRAW_STEP = "作図";
+
+function flatSteps(pk){
+  const out=[]; PRESETS[pk].groups.forEach((g,gi)=>{
+    g.steps.forEach(s=>{
+      const [name,target] = Array.isArray(s)?s:[s,null];
+      out.push({name,target,gi});
+    });
+  }); return out;
+}
+function groupTarget(pk,gi){
+  const g=PRESETS[pk].groups[gi];
+  return g.target ?? g.steps.reduce((a,s)=>a+(Array.isArray(s)?s[1]:0),0);
+}
+
+/* ================= 状態 ================= */
+const KEY="seizuTimerV1";
+let app = load() || {sessions:[], seq:{zentai:0, sakuzu:0}};
+let activeId = null;
+function load(){ try{return JSON.parse(localStorage.getItem(KEY));}catch(e){return null;} }
+function save(){ localStorage.setItem(KEY, JSON.stringify(app)); }
+function S(){ return app.sessions.find(s=>s.id===activeId); }
+function now(){ return Date.now(); }
+
+function lapsOf(events){ const m={}; (events||[]).forEach(e=>{ m[e.idx]=(m[e.idx]||0)+e.sec; }); return m; }
+function laps(s){ return lapsOf(s.events); }
+function subLaps(s){ return lapsOf(s.subEvents); }
+/* 0秒でも「記録済み」として扱う（0秒の手順が何度も回ってくるのを防止） */
+function has(lp,i){ return Object.prototype.hasOwnProperty.call(lp,i); }
+function sumLaps(lp){ return Object.values(lp).reduce((a,b)=>a+b,0); }
+
+function elapsedOf(c){
+  if(!c) return 0;
+  const end = c.pausedAt ?? now();
+  return Math.max(0,(end - c.startTs - c.pausedTotal)/1000);
+}
+function curElapsed(s){ return elapsedOf(s&&s.cur); }
+
+/* 今どちらのリスト（全体 / 作図詳細）を操作しているか */
+function ctx(){
+  const s=S(); if(!s) return null;
+  if(s.sub) return {s, sub:true,  preset:"sakuzu",  fl:flatSteps("sakuzu"),  lp:subLaps(s), cur:s.sub.cur};
+  return   {s, sub:false, preset:s.preset, fl:flatSteps(s.preset), lp:laps(s),    cur:s.cur};
+}
+
+/* ================= 表示ユーティリティ ================= */
+function fmtHMS(sec){ sec=Math.round(sec); const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
+  return h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"); }
+function fmtMS(sec){ sec=Math.round(sec); const m=Math.floor(sec/60),s=sec%60;
+  return m+":"+String(s).padStart(2,"0"); }
+function fmtDiff(min){ const v=Math.round(min*10)/10;
+  if(Math.abs(v)<0.05) return ["±0分","zero"];
+  return [(v>0?"+":"−")+Math.abs(v).toFixed(1)+"分", v>0?"over":"under"]; }
+function esc(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+
+/* ================= 画面遷移 ================= */
+function show(id){ document.querySelectorAll(".screen").forEach(el=>el.classList.toggle("active",el.id===id)); }
+function goHome(){ save(); renderHome(); show("home"); }
+function showTimer(){ show("timer"); renderTimer(); }
+function showJump(){ renderJump(); show("jump"); }
+
+/* ================= ホーム ================= */
+function renderHome(){
+  const box=document.getElementById("sesslist"); box.innerHTML="";
+  if(!app.sessions.length){ box.innerHTML='<div class="note">まだ記録がありません。上のボタンから計測を開始してください。</div>'; return; }
+  [...app.sessions].sort((a,b)=>b.createdAt-a.createdAt).forEach(s=>{
+    const tot=sumLaps(laps(s))+(s.finished?0:curElapsed(s));
+    const div=document.createElement("div"); div.className="sess";
+    div.innerHTML=`<div class="info"><div class="t">${esc(s.title)}</div>
+      <div class="m">${PRESETS[s.preset].short}・${new Date(s.createdAt).toLocaleDateString("ja-JP")}・累計 ${fmtHMS(tot)}</div></div>
+      <span class="badge ${s.finished?"":"run"}">${s.finished?"完了":"計測中"}</span>
+      <button class="sbtn" data-act="open">${s.finished?"結果を見る":"再開"}</button>
+      <button class="sbtn warn" data-act="del">削除</button>`;
+    div.querySelector('[data-act=open]').onclick=()=>{ activeId=s.id; s.finished?showSummary():showTimer(); };
+    div.querySelector('[data-act=del]').onclick=()=>{
+      modal(`<h3>「${esc(s.title)}」を削除しますか？</h3><p>この記録は元に戻せません。</p>
+        <div class="mrow"><button onclick="closeModal()">やめる</button>
+        <button class="warn" onclick="delSession('${s.id}')">削除する</button></div>`);
+    };
+    box.appendChild(div);
+  });
+}
+function delSession(id){ app.sessions=app.sessions.filter(s=>s.id!==id); save(); closeModal(); renderHome(); }
+
+function newSession(pk){
+  const n=(app.seq[pk]||0)+1;
+  const def=`${PRESETS[pk].short} ${n}回目`;
+  modal(`<h3>新しい計測を開始</h3><p>${PRESETS[pk].name}（タイトルは後からでも分かる名前に）</p>
+    <input type="text" id="m-title" value="${def}">
+    <div class="mrow"><button onclick="closeModal()">やめる</button>
+    <button class="primary" onclick="startSession('${pk}')">計測スタート ▶</button></div>`);
+  setTimeout(()=>{const i=document.getElementById("m-title"); i.focus(); i.select();},50);
+}
+function startSession(pk){
+  const title=document.getElementById("m-title").value.trim()||PRESETS[pk].short;
+  app.seq[pk]=(app.seq[pk]||0)+1;
+  const s={id:String(now()), title, preset:pk, createdAt:now(), events:[], subEvents:[], sub:null, note:"", finished:false,
+    cur:{idx:0,startTs:now(),pausedTotal:0,pausedAt:null}};
+  app.sessions.push(s); activeId=s.id; save(); closeModal(); showTimer();
+}
+
+/* ================= タイマー ================= */
+let tick=null;
+function renderTimer(){
+  const s=S(); if(!s) return goHome();
+  if(!s.subEvents) s.subEvents=[];
+  paint(); renderSide();
+  if(tick) clearInterval(tick);
+  tick=setInterval(paint,250);
+}
+function refresh(){ paint(); renderSide(); }
+
+function paint(){
+  const s=S(); if(!s||!s.cur){ if(tick)clearInterval(tick); return; }
+  const c=ctx();
+  const flM=flatSteps(s.preset), lpM=laps(s);
+  const mainTotal=sumLaps(lpM)+curElapsed(s);   // 全体累計は常に「全体」基準（作図モード中も進み続ける）
+
+  document.getElementById("t-title").textContent=s.title;
+  document.getElementById("t-mode").style.display=c.sub?"":"none";
+
+  document.getElementById("t-total").textContent=fmtHMS(mainTotal);
+  const remain=PRESETS[s.preset].totalTarget*60-mainTotal;
+  document.getElementById("t-remain").textContent=(remain>=0?"残り ":"超過 ")+fmtHMS(Math.abs(remain));
+  document.getElementById("t-remain").style.color=remain>=0?"":"var(--late)";
+
+  const st=c.fl[c.cur.idx];
+  const ce=elapsedOf(c.cur);
+  const g=PRESETS[c.preset].groups[st.gi];
+  const gTarget=groupTarget(c.preset,st.gi);
+  let gSum=ce; c.fl.forEach((x,i)=>{ if(x.gi===st.gi && has(c.lp,i)) gSum+=c.lp[i]; });
+
+  document.getElementById("t-group").textContent=`${c.sub?"作図モード｜":""}グループ：${g.label}（目標 ${gTarget}分）`;
+  document.getElementById("t-name").textContent=st.name;
+  document.getElementById("t-elapsed").textContent=fmtMS(ce);
+
+  // 手順ごとの目標（あればこちらを大きく＝グループ目標より優先）
+  const sEl=document.getElementById("t-starget"), gEl=document.getElementById("t-gsum");
+  if(st.target){
+    const d=st.target-ce/60;
+    sEl.innerHTML=`目標 ${st.target}分 ／ `+(d>=0
+      ? `<span class="ok">残り ${d.toFixed(1)}分</span>`
+      : `<span class="over">${(-d).toFixed(1)}分オーバー</span>`);
+    sEl.style.display=""; gEl.classList.add("mini");
+  }else{
+    sEl.style.display="none"; gEl.classList.remove("mini");
+  }
+  const gd=gSum/60-gTarget;
+  const ginfo = gd<=0 ? `残り ${(-gd).toFixed(1)}分` : `<b class="over">+${gd.toFixed(1)}分オーバー</b>`;
+  gEl.innerHTML=`このグループ ${(gSum/60).toFixed(1)}分 / ${gTarget}分（${ginfo}）`;
+
+  document.getElementById("t-paused").style.display=c.cur.pausedAt?"":"none";
+  document.getElementById("pausebtn").textContent=c.cur.pausedAt?"▶ 再開":"⏸ 一時停止";
+  document.getElementById("finishbtn").innerHTML=c.sub?"🏁 作図パート/<br>課題を終了":"🏁 課題を<br>終了する";
+
+  // メインボタン：作業名は出さず「次：〇〇」だけ
+  const btn=document.getElementById("mainbtn");
+  const nextName=nextLabel(c);
+  if(nextName===null){
+    btn.classList.add("finish");
+    btn.innerHTML=`✓ 記録して完了<small>これが最後の手順です</small>`;
+  }else{
+    btn.classList.remove("finish");
+    btn.innerHTML=`✓ 記録して次へ<small>次：${esc(nextName)}</small>`;
+  }
+}
+function nextLabel(c){
+  const nx=nextUnrecordedIn(c.fl,c.lp,c.cur.idx);
+  if(nx!==null) return c.fl[nx].name;
+  if(c.sub){ // 作図13手順が終わり → 全体に戻る
+    const s=c.s, nm=nextUnrecorded(s,s.cur.idx);
+    return nm===null?null:flatSteps(s.preset)[nm].name+"（全体）";
+  }
+  return null;
+}
+/* 次の手順は「前方の未記録」だけを探す。
+   末尾まで来たら先頭に巻き戻さない（飛ばした手順が終盤に再登場するのを防止）。
+   飛ばした手順を後から埋めたいときは、サイドバー／手順リストから直接タップして戻る。 */
+function nextUnrecordedIn(fl,lp,from){
+  for(let i=from+1;i<fl.length;i++) if(!has(lp,i)) return i;
+  return null;
+}
+function skippedCount(fl,lp,from){
+  let n=0; for(let i=0;i<fl.length;i++) if(i!==from&&!has(lp,i)) n++;
+  return n;
+}
+function nextUnrecorded(s,from){ return nextUnrecordedIn(flatSteps(s.preset),laps(s),from); }
+
+/* ---- 左サイドバー：これからの手順（現在をハイライト）＋ 記録済みは下にまとめる ---- */
+function renderSide(){
+  const box=document.getElementById("t-side"); const c=ctx();
+  if(!c||!c.cur){ box.innerHTML=""; return; }
+  const done=[]; let html="";
+  html+=`<div class="sghead">${c.sub?"作図パート 13手順":"手順"}</div>`;
+  c.fl.forEach((st,i)=>{
+    const cur=(i===c.cur.idx);
+    if(!cur && has(c.lp,i)){ done.push(i); return; }
+    // グループ見出しは流さず、いま計測中の手順の上にだけ表示する
+    if(cur) html+=`<div class="scur-head">${esc(PRESETS[c.preset].groups[st.gi].label)}
+      <span class="gt">目標 ${groupTarget(c.preset,st.gi)}分</span></div>`;
+    html+=`<div class="sitem${cur?" cur":""}" data-i="${i}">
+      <div class="snm">${esc(st.name)}</div>
+      <div class="stg">${st.target?st.target+"分":""}</div></div>`;
+  });
+  if(done.length){
+    html+=`<div class="sghead done">記録済み ${done.length}</div>`;
+    done.forEach(i=>{
+      html+=`<div class="sitem doneitem" data-i="${i}">
+        <div class="snm">${esc(c.fl[i].name)}</div><div class="stg">${fmtMS(c.lp[i])}</div></div>`;
+    });
+  }
+  box.innerHTML=html;
+  box.querySelectorAll(".sitem").forEach(el=>{
+    const i=+el.dataset.i;
+    if(i!==c.cur.idx) el.onclick=()=>jumpTo(i);
+  });
+}
+
+/* ================= 記録・進行 ================= */
+function recordCurrent(s,backSec=0){
+  const sec=Math.max(0,Math.round(curElapsed(s)-backSec));
+  s.events.push({idx:s.cur.idx, sec, prevStart:s.cur.startTs, prevPaused:s.cur.pausedTotal});
+  return sec;
+}
+function recordSub(s,backSec=0){
+  const sec=Math.max(0,Math.round(elapsedOf(s.sub.cur)-backSec));
+  s.subEvents.push({idx:s.sub.cur.idx, sec, prevStart:s.sub.cur.startTs, prevPaused:s.sub.cur.pausedTotal});
+  return sec;
+}
+function tapMain(){ advance(0); }
+function advance(backSec){
+  const s=S(); if(!s||!s.cur) return;
+  const c=ctx();
+  if(c.cur.pausedAt) togglePause();
+  if(c.sub){
+    recordSub(s,backSec);
+    const nx=nextUnrecordedIn(c.fl,subLaps(s),s.sub.cur.idx);
+    if(nx===null){ finishSub(s,backSec); return; }   // 13手順ぜんぶ済 → 全体に復帰
+    s.sub.cur={idx:nx, startTs:now()-backSec*1000, pausedTotal:0, pausedAt:null};
+    save(); refresh(); return;
+  }
+  advanceMain(backSec);
+}
+function advanceMain(backSec){
+  const s=S();
+  recordCurrent(s,backSec);
+  const nx=nextUnrecorded(s,s.cur.idx);
+  if(nx===null){                                   // 最後の手順まで到達 → 完了
+    const skipped=skippedCount(flatSteps(s.preset),laps(s),s.cur.idx);
+    s.cur=null; s.sub=null; s.finished=true; save(); showSummary();
+    if(skipped) modal(`<h3>お疲れさまでした</h3>
+      <p>最後まで記録しました。飛ばした手順が <b>${skipped}件</b> 空欄のままです。<br>
+      埋めたい場合は「▶ 計測を再開する」から、手順リストでその手順をタップしてください。</p>
+      <div class="mrow"><button class="primary" onclick="closeModal()">OK</button></div>`);
+    return;
+  }
+  s.cur={idx:nx, startTs:now()-backSec*1000, pausedTotal:0, pausedAt:null};
+  save(); refresh();
+  askSubIfDrawStep();
+}
+/* 作図モード（全体の「作図」に来たら詳細13手順へ） */
+function isDrawStep(s,idx){
+  return s.preset==="zentai" && flatSteps(s.preset)[idx] && flatSteps(s.preset)[idx].name===DRAW_STEP;
+}
+function askSubIfDrawStep(){
+  const s=S(); if(!s||!s.cur||s.sub) return false;
+  if(!isDrawStep(s,s.cur.idx)) return false;
+  const again=(s.subEvents&&s.subEvents.length);
+  modal(`<h3>✏️ 作図パートに入りました</h3>
+    <p>作図タイムマネジメント（13手順・目標150分）で詳細に計測できます。<br>
+    全体表の「作図」には、この13手順の合計時間がそのまま入ります（細部は別記録として残ります）。</p>
+    <div class="mrow">
+      <button onclick="closeModal();refresh()">全体のまま計測</button>
+      <button class="primary" onclick="startSub()">${again?"作図モードを再開 ▶":"作図モードで計測 ▶"}</button>
+    </div>`);
+  return true;
+}
+function startSub(){
+  const s=S(); if(!s.subEvents) s.subEvents=[];
+  const lp=subLaps(s), fl=flatSteps("sakuzu");
+  let idx=0; for(let i=0;i<fl.length;i++) if(!has(lp,i)){ idx=i; break; }
+  // 初回はモード選択に迷った時間も1手順目に含め、13手順の合計＝全体の「作図」時間になるよう起点を揃える
+  const fresh=!s.subEvents.length;
+  s.sub={cur:{ idx,
+    startTs: fresh?s.cur.startTs:now(),
+    pausedTotal: fresh?s.cur.pausedTotal:0,
+    pausedAt: s.cur.pausedAt?(fresh?s.cur.pausedAt:now()):null }};
+  save(); closeModal(); showTimer();
+}
+/* 作図パート終了 → 全体の「作図」を（作図パートの実時間で）記録して次へ */
+function finishSub(s,backSec){
+  s.sub=null;
+  advanceMain(backSec);
+}
+function exitSubOnly(){
+  const s=S();
+  if(s.sub){ recordSub(s,0); }
+  finishSub(s,0);
+  closeModal();
+}
+
+function showBackfix(){
+  modal(`<h3>⏪ 実際はもう終わっていた</h3>
+    <p>今の手順が「何秒前に終わっていたか」を選ぶと、その分を差し引いて記録し、差し引いた時間は次の手順に付け替えます。</p>
+    <div class="mrow">
+      <button class="primary" onclick="closeModal();advance(30)">30秒前</button>
+      <button class="primary" onclick="closeModal();advance(60)">1分前</button>
+      <button class="primary" onclick="closeModal();advance(120)">2分前</button>
+      <button class="primary" onclick="closeModal();advance(300)">5分前</button>
+    </div>
+    <div class="mrow"><button onclick="closeModal()">やめる</button></div>`);
+}
+function undoLap(){
+  const s=S(); if(!s) return;
+  const c=ctx();
+  if(c.sub){
+    if(!s.subEvents.length){
+      modal(`<h3>作図モードを解除しますか？</h3>
+        <p>作図パートの記録はまだありません。全体の「作図」計測に戻ります（経過時間はそのまま続きます）。</p>
+        <div class="mrow"><button onclick="closeModal()">やめる</button>
+        <button class="primary" onclick="cancelSub()">全体に戻る</button></div>`);
+      return;
+    }
+    const e=s.subEvents[s.subEvents.length-1];
+    modal(`<h3>↩︎ 直前の記録を取り消す（作図）</h3>
+      <p>「${esc(flatSteps("sakuzu")[e.idx].name)}」の記録（${fmtMS(e.sec)}）を取り消して、その手順の計測に戻ります。</p>
+      <div class="mrow"><button onclick="closeModal()">やめる</button>
+      <button class="primary" onclick="doUndoSub()">取り消して戻る</button></div>`);
+    return;
+  }
+  if(!s.events.length){ modal(`<h3>取り消せる記録がありません</h3><div class="mrow"><button onclick="closeModal()">閉じる</button></div>`); return; }
+  const e=s.events[s.events.length-1];
+  const fl=flatSteps(s.preset);
+  modal(`<h3>↩︎ 直前の記録を取り消す</h3>
+    <p>「${esc(fl[e.idx].name)}」の記録（${fmtMS(e.sec)}）を取り消して、その手順の計測に戻ります。<br>いま計測中だった時間もその手順の続きとして数えます。</p>
+    <div class="mrow"><button onclick="closeModal()">やめる</button>
+    <button class="primary" onclick="doUndo()">取り消して戻る</button></div>`);
+}
+function doUndo(){
+  const s=S(); const e=s.events.pop();
+  s.cur={idx:e.idx, startTs:e.prevStart, pausedTotal:e.prevPaused, pausedAt:s.cur?.pausedAt?now():null};
+  s.finished=false;
+  save(); closeModal(); showTimer();
+}
+function doUndoSub(){
+  const s=S(); const e=s.subEvents.pop();
+  s.sub={cur:{idx:e.idx, startTs:e.prevStart, pausedTotal:e.prevPaused, pausedAt:s.sub.cur.pausedAt?now():null}};
+  save(); closeModal(); showTimer();
+}
+function cancelSub(){ const s=S(); s.sub=null; save(); closeModal(); showTimer(); }
+
+function togglePause(){
+  const s=S(); if(!s||!s.cur) return;
+  const cs=[s.cur]; if(s.sub) cs.push(s.sub.cur);
+  const paused=!!s.cur.pausedAt;
+  cs.forEach(c=>{
+    if(paused){ if(c.pausedAt){ c.pausedTotal+=now()-c.pausedAt; c.pausedAt=null; } }
+    else c.pausedAt=now();
+  });
+  save(); paint();
+}
+function confirmFinish(){
+  const s=S(); const c=ctx();
+  if(c.sub){
+    modal(`<h3>作図パートを終えますか？</h3>
+      <p>今の作図手順「${esc(c.fl[c.cur.idx].name)}」（${fmtMS(elapsedOf(c.cur))}）を記録します。<br>
+      「全体に戻る」を選ぶと、全体表の「作図」がここまでの実時間で記録され、次の手順（図面チェック等）に進みます。</p>
+      <div class="mrow col">
+        <button class="primary" onclick="exitSubOnly()">作図パートを終えて全体に戻る</button>
+        <button onclick="doFinish()">課題ごと終了する</button>
+        <button onclick="closeModal()">まだ続ける</button>
+      </div>`);
+    return;
+  }
+  modal(`<h3>🏁 課題を終了しますか？</h3>
+    <p>今の手順「${esc(flatSteps(s.preset)[s.cur.idx].name)}」（${fmtMS(curElapsed(s))}）を記録して終了します。未記録の手順は空欄のままになります。</p>
+    <div class="mrow"><button onclick="closeModal()">まだ続ける</button>
+    <button class="primary" onclick="doFinish()">記録して終了</button></div>`);
+}
+function doFinish(){
+  const s=S();
+  if(s.sub){ recordSub(s,0); s.sub=null; }
+  if(s.cur){ recordCurrent(s,0); s.cur=null; }
+  s.finished=true; save(); closeModal(); showSummary();
+}
+
+/* ================= ジャンプ（全画面リスト） ================= */
+function renderJump(){
+  const c=ctx(); const s=c.s;
+  const box=document.getElementById("jumplist"); box.innerHTML="";
+  let no=1, lastGi=-1;
+  c.fl.forEach((st,i)=>{
+    if(st.gi!==lastGi){
+      lastGi=st.gi;
+      const g=PRESETS[c.preset].groups[st.gi];
+      const gh=document.createElement("div"); gh.className="step grp";
+      gh.innerHTML=`<div class="nm">${esc(g.label)}</div><div class="tm">目標 ${groupTarget(c.preset,st.gi)}分</div>`;
+      box.appendChild(gh);
+    }
+    const cur=c.cur&&c.cur.idx===i;
+    const rec=has(c.lp,i);
+    const div=document.createElement("div");
+    div.className="step"+(cur?" cur":"")+(rec&&!cur?" doneitem":"");
+    const t=rec?fmtMS(c.lp[i]):(cur?"▶ "+fmtMS(elapsedOf(c.cur)):"—");
+    div.innerHTML=`<div class="no">${no}</div><div class="nm">${esc(st.name)}${rec&&cur?"（追加計測中）":""}</div>
+      <div class="tg">${st.target?"目標"+st.target+"分":""}</div>
+      <div class="tm ${rec||cur?"":"none"}">${t}</div>`;
+    if(!cur) div.onclick=()=>jumpTo(i);
+    box.appendChild(div); no++;
+  });
+}
+function jumpTo(i){
+  const s=S(); const c=ctx();
+  if(!c.cur){                                   // 終了済みから復帰
+    s.finished=false; s.cur={idx:i,startTs:now(),pausedTotal:0,pausedAt:null};
+    save(); showTimer(); return;
+  }
+  if(c.sub){
+    if(elapsedOf(s.sub.cur)>=5) recordSub(s,0);  // 5秒未満は誤タップとみなし記録しない
+    s.sub.cur={idx:i, startTs:now(), pausedTotal:0, pausedAt:null};
+    save(); showTimer(); return;
+  }
+  if(curElapsed(s)>=5) recordCurrent(s,0);
+  s.cur={idx:i, startTs:now(), pausedTotal:0, pausedAt:null};
+  save(); showTimer();
+  askSubIfDrawStep();
+}
+
+/* ================= サマリー ================= */
+function showSummary(){
+  const s=S(); const fl=flatSteps(s.preset), lp=laps(s);
+  document.getElementById("sum-title").textContent=s.title+"（"+PRESETS[s.preset].name+"）";
+  document.getElementById("sum-resume").style.display=s.finished?"":"none";
+  const box=document.getElementById("sumlist"); box.innerHTML="";
+  let no=1, total=0, totalT=PRESETS[s.preset].totalTarget;
+  const hasSub=!!(s.subEvents&&s.subEvents.length);
+  PRESETS[s.preset].groups.forEach((g,gi)=>{
+    let gSum=0, gHas=false;
+    const rows=[];
+    fl.forEach((st,i)=>{
+      if(st.gi!==gi) return;
+      const v=has(lp,i)?lp[i]:null;
+      if(v!==null){ gSum+=v; gHas=true; }
+      const mark=(hasSub&&st.name===DRAW_STEP&&s.preset==="zentai")?'<span style="font-size:12px;color:var(--sub)">（詳細あり↓）</span>':"";
+      rows.push(`<div class="step"><div class="no">${no}</div><div class="nm">${esc(st.name)} ${mark}</div>
+        <div class="tg">${st.target?"目標"+st.target+"分":""}</div>
+        <div class="tm ${v!==null?"":"none"}">${v!==null?fmtMS(v):"—"}</div></div>`);
+      no++;
+    });
+    total+=gSum;
+    const gt=groupTarget(s.preset,gi);
+    const [dtxt,dcls]=gHas?fmtDiff(gSum/60-gt):["—","zero"];
+    box.insertAdjacentHTML("beforeend", rows.join("")+
+      `<div class="step grp"><div class="nm">└ 小計（${esc(g.label)}）　目標 ${gt}分</div>
+       <div class="tm">${gHas?fmtMS(gSum):"—"}</div><div class="diff ${dcls}">${dtxt}</div></div>`);
+  });
+  // 合計差は最終グループまで記録があるときだけ表示（未完の課題を「巻き」と誤表示しない）
+  const lastGi=PRESETS[s.preset].groups.length-1;
+  const lastHas=fl.some((st,i)=>st.gi===lastGi&&has(lp,i));
+  const [tdtxt,tdcls]=lastHas?fmtDiff(total/60-totalT):["（最後まで記録なし）","zero"];
+  document.getElementById("sum-total").innerHTML=
+    `<span>合計 ${fmtHMS(total)}</span><span>目標 ${fmtHMS(totalT*60)}</span><span class="diff ${tdcls}">${tdtxt}</span>`;
+
+  renderSubSummary(s);
+  // 作図パートの記録があるときだけ、作図シート用のコピーボタンを出す
+  document.getElementById("sum-copysub").style.display=hasSub?"":"none";
+  document.getElementById("sum-copy").textContent=hasSub?"📋 全体をコピー":"📋 スプシ貼り付け用をコピー";
+  const nt=document.getElementById("sum-note"); nt.value=s.note||"";
+  document.getElementById("tsvbox").style.display="none";
+  show("summary");
+}
+function renderSubSummary(s){
+  const wrap=document.getElementById("sum-subwrap");
+  if(!(s.subEvents&&s.subEvents.length)){ wrap.style.display="none"; return; }
+  wrap.style.display="";
+  const fl=flatSteps("sakuzu"), lp=subLaps(s);
+  const box=document.getElementById("sumsublist"); box.innerHTML="";
+  let no=1, total=0;
+  PRESETS.sakuzu.groups.forEach((g,gi)=>{
+    let gSum=0, gHas=false; const rows=[];
+    fl.forEach((st,i)=>{
+      if(st.gi!==gi) return;
+      const v=has(lp,i)?lp[i]:null;
+      if(v!==null){ gSum+=v; gHas=true; }
+      const [dtxt,dcls]=(v!==null&&st.target)?fmtDiff(v/60-st.target):["","zero"];
+      rows.push(`<div class="step"><div class="no">${no}</div><div class="nm">${esc(st.name)}</div>
+        <div class="tg">目標${st.target}分</div>
+        <div class="tm ${v!==null?"":"none"}">${v!==null?fmtMS(v):"—"}</div>
+        <div class="diff ${dcls}">${dtxt}</div></div>`);
+      no++;
+    });
+    total+=gSum;
+    const gt=groupTarget("sakuzu",gi);
+    const [dtxt,dcls]=gHas?fmtDiff(gSum/60-gt):["—","zero"];
+    box.insertAdjacentHTML("beforeend", rows.join("")+
+      `<div class="step grp"><div class="nm">└ 小計（${esc(g.label)}）　目標 ${gt}分</div>
+       <div class="tm">${gHas?fmtMS(gSum):"—"}</div><div class="diff ${dcls}">${dtxt}</div></div>`);
+  });
+  const [ttxt,tcls]=fmtDiff(total/60-PRESETS.sakuzu.totalTarget);
+  document.getElementById("sum-subtotal").innerHTML=
+    `<span>作図合計 ${fmtHMS(total)}</span><span>目標 ${fmtHMS(PRESETS.sakuzu.totalTarget*60)}</span><span class="diff ${tcls}">${ttxt}</span>`;
+}
+document.getElementById("sum-note").addEventListener("input",e=>{
+  const s=S(); if(s){ s.note=e.target.value; save(); }
+});
+function resumeFromSummary(){
+  const s=S(); const fl=flatSteps(s.preset), lp=laps(s);
+  let idx=null; for(let i=0;i<fl.length;i++) if(!has(lp,i)){ idx=i; break; }
+  if(idx===null) idx=fl.length-1;
+  s.finished=false; s.sub=null; s.cur={idx, startTs:now(), pausedTotal:0, pausedAt:null};
+  save(); showTimer();
+  askSubIfDrawStep();
+}
+/* --- 書き出し --- */
+function tsvFrom(pk,lp){
+  const fl=flatSteps(pk), lines=[];
+  PRESETS[pk].groups.forEach((g,gi)=>{
+    fl.forEach((st,i)=>{
+      if(st.gi!==gi) return;
+      lines.push(has(lp,i)?Math.floor(lp[i]/60)+"\t"+Math.round(lp[i]%60):"\t");
+    });
+    if(gi<PRESETS[pk].groups.length-1) lines.push("\t");  // 小計行の位置
+  });
+  return lines.join("\n");
+}
+function buildTSV(){ const s=S(); return tsvFrom(s.preset, laps(s)); }
+function copyTSV(kind){
+  const s=S(), sub=(kind==="sub");
+  const tsv=sub?tsvFrom("sakuzu",subLaps(s)):buildTSV();
+  const where=sub
+    ? "<b>作図タイムマネジメントのシート</b>で、記録列の一番上の「実測 分」セルを<b>1つだけ選択</b>して貼り付けてください。13手順分が分・秒の2列に入ります。"
+    : "スプレッドシートで、貼り付けたい記録列の一番上の「実測 分」セル（例：本番1回目なら E4）を<b>1つだけ選択</b>して貼り付けてください。分と秒の2列に一括で入ります。";
+  const done=()=>modal(`<h3>📋 ${sub?"作図パートを":""}コピーしました</h3>
+    <p>${where}</p>
+    <div class="mrow"><button class="primary" onclick="closeModal()">OK</button></div>`);
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(tsv).then(done).catch(()=>fallbackCopy(tsv));
+  }else fallbackCopy(tsv);
+}
+function fallbackCopy(tsv){
+  const box=document.getElementById("tsvbox");
+  box.style.display=""; box.value=tsv; box.focus(); box.select();
+  modal(`<h3>下の枠を長押し→「すべて選択」→コピー</h3>
+    <p>自動コピーができない環境のため、画面下の枠から手動でコピーしてください。</p>
+    <div class="mrow"><button class="primary" onclick="closeModal()">OK</button></div>`);
+}
+function downloadCSV(){
+  const s=S(); const fl=flatSteps(s.preset), lp=laps(s);
+  let csv="﻿No,手順,分,秒,合計秒\n"; let no=1;
+  fl.forEach((st,i)=>{
+    const v=has(lp,i)?lp[i]:null;
+    csv+=`${no},"${st.name}",${v!==null?Math.floor(v/60):""},${v!==null?Math.round(v%60):""},${v!==null?Math.round(v):""}\n`; no++;
+  });
+  if(s.subEvents&&s.subEvents.length){
+    const sfl=flatSteps("sakuzu"), slp=subLaps(s);
+    csv+="\n作図パート詳細\nNo,手順,分,秒,合計秒,目標分\n"; let n2=1;
+    sfl.forEach((st,i)=>{
+      const v=has(slp,i)?slp[i]:null;
+      csv+=`${n2},"${st.name}",${v!==null?Math.floor(v/60):""},${v!==null?Math.round(v%60):""},${v!==null?Math.round(v):""},${st.target||""}\n`; n2++;
+    });
+  }
+  if(s.note) csv+=`\n備考\n"${String(s.note).replace(/"/g,'""')}"\n`;
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download=s.title.replace(/[\/\\:]/g,"_")+".csv"; a.click();
+}
+
+/* ================= モーダル・共通 ================= */
+function modal(html){ document.getElementById("mbox").innerHTML=html; document.getElementById("modal").classList.add("active"); }
+function closeModal(){ document.getElementById("modal").classList.remove("active"); }
+document.getElementById("modal").addEventListener("click",e=>{ if(e.target.id==="modal") closeModal(); });
+
+/* スリープ抑止（対応環境のみ） */
+let wl=null;
+async function keepAwake(){ try{ wl=await navigator.wakeLock.request("screen"); }catch(e){} }
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"){ keepAwake(); if(S()&&!S().finished) refresh(); } });
+keepAwake();
+
+/* 起動：計測中の課題があれば自動再開 */
+const running=app.sessions.find(s=>!s.finished&&s.cur);
+if(running){ activeId=running.id; showTimer(); } else { renderHome(); show("home"); }
+</script>
+</body>
+</html>
